@@ -7,12 +7,14 @@
 # For Raspberry Pi Zero Ups Power Expansion Board with Integrated Serial Port S3U4
 # https://www.ebay.de/itm/For-Raspberry-Pi-Zero-Ups-Power-Expansion-Board-with-Integrated-Serial-Port-S3U4/323873804310
 # https://www.aliexpress.com/item/32888533624.html
+import logging
 import struct
 
 from pwnagotchi.ui.components import LabeledValue
 from pwnagotchi.ui.view import BLACK
 import pwnagotchi.ui.fonts as fonts
 import pwnagotchi.plugins as plugins
+import pwnagotchi
 
 
 # TODO: add enable switch in config.yml an cleanup all to the best place
@@ -58,5 +60,14 @@ class UPSLite(plugins.Plugin):
         ui.add_element('ups', LabeledValue(color=BLACK, label='UPS', value='0%/0V', position=(ui.width() / 2 + 15, 0),
                                            label_font=fonts.Bold, text_font=fonts.Medium))
 
+    def on_unload(self, ui):
+        with ui._lock:
+            ui.remove_element('ups')
+
     def on_ui_update(self, ui):
-        ui.set('ups', "%2i%%" % self.ups.capacity())
+        capacity = self.ups.capacity()
+        ui.set('ups', "%2i%%" % capacity)
+        if capacity <= self.options['shutdown']:
+            logging.info('[ups_lite] Empty battery (<= %s%%): shuting down' % self.options['shutdown'])
+            ui.update(force=True, new_data={'status': 'Battery exhausted, bye ...'})
+            pwnagotchi.shutdown()
